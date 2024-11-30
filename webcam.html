@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Detection</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        video {
+            width: 320px;
+            height: 240px;
+            border: 2px solid #ff6f61;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1.2em;
+            cursor: pointer;
+            background-color: #ff6f61;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #ff4e00;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .result-item {
+            margin-bottom: 10px;
+        }
+        #uploadForm {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Webcam Detection</h1>
+    <video id="video" autoplay></video>
+    <div id="results"></div>
+
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="imageUpload" accept="image/*" required>
+        <button type="submit">Upload Image</button>
+    </form>
+
+    <script>
+        const video = document.getElementById("video");
+        const resultsDiv = document.getElementById("results");
+
+        // Access the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+                detectObjects();
+            })
+            .catch(err => {
+                console.error("Error accessing webcam: ", err);
+            });
+
+        async function detectObjects() {
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+
+            setInterval(async () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0);
+                const imageData = canvas.toDataURL("image/jpeg");
+
+                const response = await fetch("/detect", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ image: imageData })
+                });
+                const data = await response.json();
+                displayResults(data);
+            }, 1000); // Adjust the interval as needed
+        }
+
+        function displayResults(data) {
+            resultsDiv.innerHTML = "";
+
+            data.detected_items.forEach(item => {
+                const resultItem = document.createElement("div");
+                resultItem.className = "result-item";
+                resultItem.textContent = `${item.name}: ${item.confidence}`;
+                resultsDiv.appendChild(resultItem);
+            });
+
+            const img = document.createElement("img");
+            img.src = `data:image/jpeg;base64,${data.image}`;
+            resultsDiv.appendChild(img);
+        }
+
+        document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById("imageUpload");
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            const response = await fetch("/upload", {
+                method: "POST",
+                body: formData
+            });
+            const data = await response.json();
+            displayResults(data);
+        });
+    </script>
+</body>
+</html>

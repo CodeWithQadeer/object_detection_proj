@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Detection</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: ('assets/images/background.png') no-repeat center center fixed;
+            background-size: cover;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+            opacity: 0.9;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body.dark-mode {
+            background-color: #333;
+            color: #eee;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            color: #333;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        body.dark-mode h1 {
+            color: #eee;
+        }
+
+        #upload-form {
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode #upload-form {
+            background-color: rgba(50, 50, 50, 0.8);
+        }
+
+        input[type="file"] {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 2px solid #ff6f61;
+            border-radius: 5px;
+            transition: border-color 0.3s ease;
+        }
+
+        body.dark-mode input[type="file"] {
+            border: 2px solid #ff7f50;
+        }
+
+        button {
+            background-color: #ff6f61;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        body.dark-mode button {
+            background-color: #ff7f50;
+        }
+
+        button:hover {
+            background-color: #ff4e00;
+            transform: scale(1.05);
+        }
+
+        body.dark-mode button:hover {
+            background-color: #ff6f3a;
+        }
+
+        #output-image {
+            max-width: 100%;
+            max-height: 500px;
+            margin-top: 20px;
+            border: 2px solid #ff6f61;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        body.dark-mode #output-image {
+            border-color: #ff7f50;
+        }
+
+        .results-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin: 20px auto;
+            max-width: 90%;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        body.dark-mode .results-container {
+            background-color: rgba(50, 50, 50, 0.9);
+        }
+
+        .result-item {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #ff4e00;
+            margin-bottom: 10px;
+        }
+
+        body.dark-mode .result-item {
+            color: #ff7f50;
+        }
+
+        #darkModeToggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #444;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            z-index: 1000;
+        }
+
+        body.dark-mode #darkModeToggle {
+            background-color: #ff7f50;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload an Image or Use Webcam</h1>
+
+    <div id="upload-form">
+        <input type="file" id="imageUpload" accept="image/*" required>
+        <button id="uploadButton">Upload Image</button>
+    </div>
+
+    <button id="toggleWebcamButton">Start Webcam Detection</button>
+    
+    <video id="webcam" width="320" height="240" style="display:none;" autoplay></video>
+    <div id="results" class="results-container" style="display: none;"></div>
+
+    <button id="darkModeToggle">Toggle Dark Mode</button>
+
+    <script>
+        const toggleWebcamButton = document.getElementById("toggleWebcamButton");
+        const webcamVideo = document.getElementById("webcam");
+        const resultsDiv = document.getElementById("results");
+        const darkModeToggle = document.getElementById("darkModeToggle");
+
+        let isDetecting = false;
+        let videoStream;
+
+        darkModeToggle.addEventListener("click", () => {
+            document.body.classList.toggle("dark-mode");
+        });
+
+        toggleWebcamButton.addEventListener("click", async () => {
+            if (isDetecting) {
+                stopWebcam();
+                toggleWebcamButton.textContent = "Start Webcam Detection";
+            } else {
+                await startWebcam();
+                toggleWebcamButton.textContent = "Stop Webcam Detection";
+            }
+        });
+
+        async function startWebcam() {
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcamVideo.srcObject = videoStream;
+                webcamVideo.style.display = "block";
+                isDetecting = true;
+                detectObjects();
+            } catch (err) {
+                console.error("Error accessing webcam: ", err);
+            }
+        }
+
+        function stopWebcam() {
+            isDetecting = false;
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                webcamVideo.style.display = "none";
+                resultsDiv.style.display = "none";
+            }
+        }
+
+        async function detectObjects() {
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+
+            const detectInterval = setInterval(async () => {
+                context.drawImage(webcamVideo, 0, 0, canvas.width, canvas.height);
+                const imageData = canvas.toDataURL("image/jpeg");
+
+                const response = await fetch("/detect", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ image: imageData })
+                });
+                const data = await response.json();
+                displayResults(data, resultsDiv);
+            }, 1000);
+
+            if (!isDetecting) {
+                clearInterval(detectInterval);
+            }
+        }
+
+        document.getElementById("uploadButton").addEventListener("click", async () => {
+            const fileInput = document.getElementById("imageUpload");
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            const response = await fetch("/upload", {
+                method: "POST",
+                body: formData
+            });
+            const data = await response.json();
+            displayResults(data, resultsDiv);
+        });
+
+        function displayResults(data, targetDiv) {
+            targetDiv.innerHTML = "";
+            targetDiv.style.display = "block";
+
+            data.detected_items.forEach(item => {
+                const resultItem = document.createElement("div");
+                resultItem.className = "result-item";
+                resultItem.textContent = `${item.name}: ${item.confidence}`;
+                targetDiv.appendChild(resultItem);
+            });
+
+            const img = document.createElement("img");
+            img.src = `data:image/jpeg;base64,${data.image}`;
+            targetDiv.appendChild(img);
+        }
+
+        document.addEventListener('dblclick', () => {
+            alert("You discovered the hidden message! Made with ❤️,Qadeer!");
+        });
+
+    </script>
+</body>
+</html>
