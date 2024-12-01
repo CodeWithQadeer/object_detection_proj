@@ -14,7 +14,7 @@ Requirements
 
 If you want to run this app, Install all the requirments and run the code
 'python app.py' in Terminal 
-contact : +918074697012
+contact me if need any help : +918074697012
 
 
 
