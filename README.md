@@ -10,13 +10,7 @@ Requirements
 3. OpenCV (cv2)
 4. YOLOv3 weights, configuration file, and class names file
 5. A modern web browser (Chrome, Firefox, etc.)
-
-
-If you want to run this app, Install all the requirments and run the code
-'python app.py' in Terminal 
-contact me if need any help : +918074697012
-
-
+ 
 
 Installation
 ------------
@@ -83,3 +77,6 @@ Syed Abdul Qadeer
 
 You will need to download the weights file (yolov3.weights) and place it inside the same folder
 from https://github.com/patrick013/Object-Detection---Yolov3/blob/master/model/yolov3.weights
+
+
+contact me if need any help : +918074697012
