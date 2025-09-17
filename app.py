@@ -13,6 +13,8 @@ output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers().flatt
 with open("coco.names", "r") as f:
     classes = [line.strip() for line in f.readlines()]
 
+    
+
 app = Flask(__name__)
 
 def detect_objects(image):
